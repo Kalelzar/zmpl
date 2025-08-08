@@ -93,7 +93,7 @@ pub fn build(b: *std.Build) !void {
     const manifest_exe = b.addExecutable(.{
         .name = "manifest",
         .root_source_file = b.path("src/manifest/main.zig"),
-        .target = target,
+        .target = b.graph.host,
         .optimize = optimize,
         .use_llvm = use_llvm,
     });
