@@ -98,10 +98,10 @@ pub fn build(b: *std.Build) !void {
         .name = "manifest",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/manifest/main.zig"),
-            .target = target,
+            .target = b.graph.host,
             .optimize = optimize,
+            .use_llvm = use_llvm,
         }),
-        .use_llvm = use_llvm,
     });
 
     const options_files = b.addWriteFiles();
