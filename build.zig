@@ -8,7 +8,6 @@ const zmd = @import("zmd");
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const use_llvm = b.option(bool, "use_llvm", "Use LLVM") orelse true;
 
     const lib = b.addLibrary(.{
         .name = "zmpl",
@@ -17,7 +16,6 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         }),
-        .use_llvm = use_llvm,
     });
 
     const exe = b.addExecutable(.{
@@ -27,7 +25,6 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
             .target = target,
         }),
-        .use_llvm = use_llvm,
     });
     const run_artifact = b.addRunArtifact(exe);
     const run_step = b.step("run", "Run benchmarking");
@@ -100,7 +97,6 @@ pub fn build(b: *std.Build) !void {
             .root_source_file = b.path("src/manifest/main.zig"),
             .target = b.graph.host,
             .optimize = optimize,
-            .use_llvm = use_llvm,
         }),
     });
 
