@@ -68,12 +68,12 @@ pub fn isPresent(value: anytype) !bool {
     if (T == bool) return value;
 
     // For strings, check if the string is not empty
-    if (comptime std.meta.trait.isZigString(T)) {
+    if (comptime isZigString(T)) {
         return value.len > 0;
     }
 
     // For numbers, check if the value is not zero
-    if (comptime std.meta.trait.isNumber(T)) {
+    if (comptime isNumber(T)) {
         return value != 0;
     }
 
@@ -87,4 +87,19 @@ pub fn refIsPresent(data: *Data, ref_key: []const u8) !bool {
 
 test {
     std.testing.refAllDecls(@This());
+}
+
+fn isZigString(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .pointer => |p| (p.size == .slice and p.child == u8) or
+            (p.size == .one and @typeInfo(p.child) == .array and @typeInfo(p.child).array.child == u8),
+        else => false,
+    };
+}
+
+fn isNumber(comptime T: type) bool {
+    return switch (@typeInfo(T)) {
+        .int, .float, .comptime_int, .comptime_float => true,
+        else => false,
+    };
 }

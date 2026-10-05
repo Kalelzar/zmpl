@@ -327,7 +327,7 @@ pub fn coerceString(self: *Data, value: anytype) ![]const u8 {
             },
         },
 
-        // This must be consistent with `std.builtin.Type` - we want to see an error if a new
+        // This must be consistent with `std.lang.Type` - we want to see an error if a new
         // field is added so we specifically do not want an `else` clause here:
         .type,
         .void,
@@ -343,6 +343,7 @@ pub fn coerceString(self: *Data, value: anytype) ![]const u8 {
         .@"anyframe",
         .vector,
         .enum_literal,
+        .spirv,
         => |Type| {
             return zmplError(
                 .type,
@@ -987,7 +988,7 @@ pub const Value = union(ValueType) {
     /// const is_less_than = try value.compare(.less_than, 100);
     /// ```
     pub fn compare(self: Value, comptime operator: Operator, other: Value) !bool {
-        if (@intFromEnum(self) != @intFromEnum(other)) return zmplError(
+        if (@backingInt(self) != @backingInt(other)) return zmplError(
             .compare,
             "Cannot compare `{s}` with `{s}`",
             .{ @tagName(self), @tagName(other) },
@@ -1771,39 +1772,40 @@ pub const Object = struct {
         var return_struct: Struct = undefined;
         switch (@typeInfo(Struct)) {
             .@"struct" => {
-                inline for (std.meta.fields(Struct)) |field| {
-                    switch (@typeInfo(field.type)) {
+                const struct_info = @typeInfo(Struct).@"struct";
+                inline for (struct_info.field_names, struct_info.field_types) |field_name, field_type| {
+                    switch (@typeInfo(field_type)) {
                         .int => @field(
                             return_struct,
-                            field.name,
+                            field_name,
                         ) = self.getT(
                             .integer,
-                            field.name,
+                            field_name,
                         ) orelse return null,
                         .float => @field(
                             return_struct,
-                            field.name,
+                            field_name,
                         ) = self.getT(
                             .float,
-                            field.name,
+                            field_name,
                         ) orelse return null,
-                        .bool => @field(return_struct, field.name) = self.getT(
+                        .bool => @field(return_struct, field_name) = self.getT(
                             .boolean,
-                            field.name,
+                            field_name,
                         ) orelse return null,
                         .@"struct" => {
-                            const obj = self.getT(.object, field.name) orelse return null;
+                            const obj = self.getT(.object, field_name) orelse return null;
                             @field(
                                 return_struct,
-                                field.name,
-                            ) = obj.getStruct(field.type) orelse return null;
+                                field_name,
+                            ) = obj.getStruct(field_type) orelse return null;
                         },
                         .pointer => |info| switch (info.size) {
                             .slice => {
                                 switch (info.child) {
-                                    u8 => @field(return_struct, field.name) = self.getT(
+                                    u8 => @field(return_struct, field_name) = self.getT(
                                         .string,
-                                        field.name,
+                                        field_name,
                                     ) orelse return null,
                                     else => @compileError(
                                         "Slice type not supported, type: " ++ @typeName(info.child),
@@ -1815,18 +1817,18 @@ pub const Object = struct {
                             ),
                         },
                         .@"enum" => |info| {
-                            const enum_val_str = self.getT(.string, field.name) orelse return null;
-                            inline for (info.fields) |enum_field| {
-                                if (std.mem.eql(u8, enum_field.name, enum_val_str)) {
+                            const enum_val_str = self.getT(.string, field_name) orelse return null;
+                            inline for (info.field_names, info.field_values) |enum_name, enum_value| {
+                                if (std.mem.eql(u8, enum_name, enum_val_str)) {
                                     @field(
                                         return_struct,
-                                        field.name,
-                                    ) = @enumFromInt(enum_field.value);
+                                        field_name,
+                                    ) = @fromBackingInt(@intCast(enum_value));
                                     break;
                                 }
                             }
                         },
-                        else => @compileError("Type not supported, type: " ++ @typeName(field.type)),
+                        else => @compileError("Type not supported, type: " ++ @typeName(field_type)),
                     }
                 }
                 return return_struct;
@@ -2084,15 +2086,15 @@ pub fn isZmplValue(T: type) bool {
     };
 }
 
-fn isStringCoercablePointer(pointer: std.builtin.Type.Pointer, child: type) bool {
+fn isStringCoercablePointer(pointer: std.lang.Type.Pointer, child: type) bool {
     const child_info = @typeInfo(child);
 
     // Logic borrowed from old implementation of std.meta.isZigString
-    if (!pointer.is_volatile and
-        !pointer.is_allowzero and
+    if (!pointer.attrs.@"volatile" and
+        !pointer.attrs.@"allowzero" and
         pointer.size == .slice and pointer.child == u8) return true;
-    if (!pointer.is_volatile and
-        !pointer.is_allowzero and pointer.size == .one and
+    if (!pointer.attrs.@"volatile" and
+        !pointer.attrs.@"allowzero" and pointer.size == .one and
         child_info == .array and
         child_info.array.child == u8) return true;
     return false;
@@ -2214,11 +2216,12 @@ pub fn zmplValue(value: anytype, alloc: Allocator) !*Value {
 
 fn structToValue(value: anytype, alloc: std.mem.Allocator) !Value {
     var obj = Data.Object.init(alloc);
-    inline for (std.meta.fields(@TypeOf(value))) |field| {
+    const value_info = @typeInfo(@TypeOf(value)).@"struct";
+    inline for (value_info.field_names, value_info.field_types) |field_name, field_type| {
         // Allow serializing structs that may have some extra type fields (e.g. JetQuery results).
-        if (comptime field.type == type) continue;
+        if (comptime field_type == type) continue;
 
-        try obj.put(field.name, @field(value, field.name));
+        try obj.put(field_name, @field(value, field_name));
     }
     return Value{ .object = obj };
 }

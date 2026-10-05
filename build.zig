@@ -101,10 +101,20 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     }).module("zmd");
 
-    const jetcommon = b.dependency("jetcommon", .{
+    const zul = b.dependency("zul", .{
         .target = target,
         .optimize = optimize,
-    }).module("jetcommon");
+    }).module("zul");
+    const jetcommon_dep = b.dependency("jetcommon", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const jetcommon = b.createModule(.{
+        .root_source_file = jetcommon_dep.path("src/jetcommon.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "zul", .module = zul }},
+    });
 
     const entry = b.createModule(.{
         .target = target,

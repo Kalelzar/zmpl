@@ -122,7 +122,7 @@ pub fn compile(self: *Template, io: std.Io, comptime options: type) ![]const u8 
     self.state = .compiled;
 
     const with_sentinel = try std.mem.concatWithSentinel(self.allocator, u8, &.{buf.items}, 0);
-    var ast = try std.zig.Ast.parse(self.allocator, with_sentinel, .zig);
+    var ast = try std.zig.Ast.parse(self.allocator, with_sentinel, .{ .mode = .zig });
     return if (ast.errors.len > 0)
         try buf.toOwnedSlice(self.allocator)
     else
@@ -411,9 +411,10 @@ fn getDelimitedMode(line: []const u8) ?DelimitedMode {
 
     const first_word = stripped[1..end_of_first_word.?];
 
-    inline for (std.meta.fields(Mode)) |field| {
-        if (std.mem.eql(u8, field.name, first_word)) {
-            const mode: Mode = @enumFromInt(field.value);
+    const mode_info = @typeInfo(Mode).@"enum";
+    inline for (mode_info.field_names, mode_info.field_values) |mode_name, mode_value| {
+        if (std.mem.eql(u8, mode_name, first_word)) {
+            const mode: Mode = @fromBackingInt(@intCast(mode_value));
             const maybe_delimiter: ?Delimiter = switch (mode) {
                 .args, .extend, .blocks => .none,
                 .html,
@@ -563,16 +564,17 @@ fn renderHeader(self: *Template, writer: anytype, options: type) !void {
     defer decls_buf.deinit(self.allocator);
 
     if (@hasDecl(options, "template_constants")) {
-        inline for (std.meta.fields(options.template_constants)) |field| {
-            const type_str = switch (field.type) {
-                []const u8, i128, f128, bool => @typeName(field.type),
-                else => @compileError("Unsupported template constant type: " ++ @typeName(field.type)),
+        const tc_info = @typeInfo(options.template_constants).@"struct";
+        inline for (tc_info.field_names, tc_info.field_types) |field_name, field_type| {
+            const type_str = switch (field_type) {
+                []const u8, i128, f128, bool => @typeName(field_type),
+                else => @compileError("Unsupported template constant type: " ++ @typeName(field_type)),
             };
 
-            const decl_string = "const " ++ field.name ++ ": " ++ type_str ++ " = try zmpl.getConst(" ++ type_str ++ ", \"" ++ field.name ++ "\");\n"; // :(
+            const decl_string = "const " ++ field_name ++ ": " ++ type_str ++ " = try zmpl.getConst(" ++ type_str ++ ", \"" ++ field_name ++ "\");\n"; // :(
 
             try decls_buf.appendSlice(self.allocator, "    " ++ decl_string);
-            try decls_buf.appendSlice(self.allocator, "    zmpl.noop(" ++ type_str ++ ", " ++ field.name ++ ");\n");
+            try decls_buf.appendSlice(self.allocator, "    zmpl.noop(" ++ type_str ++ ", " ++ field_name ++ ");\n");
         }
     }
 

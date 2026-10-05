@@ -53,14 +53,14 @@ pub const Writer = struct {
         var buf: std.Io.Writer.Allocating = .fromArrayList(self.allocator, self.buf);
         defer buf.deinit();
         try buf.writer.print(input, args);
-        if (builtin.mode == .Debug) try self.writeDebug(&buf.writer);
+        if (builtin.mode == .debug) try self.writeDebug(&buf.writer);
         self.buf.* = buf.toArrayList();
     }
 
     pub fn writeAll(self: Writer, input: []const u8) !void {
         var buf: std.Io.Writer.Allocating = .fromArrayList(self.allocator, self.buf);
         defer buf.deinit();
-        if (builtin.mode == .Debug) {
+        if (builtin.mode == .debug) {
             var it = std.mem.tokenizeScalar(u8, input, '\n');
             while (it.next()) |line| {
                 try buf.writer.writeAll(line);
@@ -502,7 +502,7 @@ fn renderPartial(self: Node, io: std.Io, content: []const u8, writer: anytype) !
                     const chain = try std.fmt.allocPrint(
                         self.allocator,
                         \\if (comptime __zmpl.isZmplValue(@TypeOf({[root]s})))
-                        \\    try {[root]s}.chainRefT(@typeInfo(@TypeOf({[name]s}_renderPartial)).@"fn".params[{[index]}].type.?, "{[remainder]s}",)
+                        \\    try {[root]s}.chainRefT(@typeInfo(@TypeOf({[name]s}_renderPartial)).@"fn".param_types[{[index]}].?, "{[remainder]s}",)
                         \\else
                         \\    {[root]s}{[separator]s}{[remainder2]s}
                     ,
@@ -523,7 +523,7 @@ fn renderPartial(self: Node, io: std.Io, content: []const u8, writer: anytype) !
                         self.allocator,
                         try std.fmt.allocPrint(self.allocator,
                             \\if (comptime __zmpl.isZmplValue(@TypeOf({[root]s})))
-                            \\    try {0s}.coerce(@typeInfo(@TypeOf({[name]s}_renderPartial)).@"fn".params[{[index]}].type.?)
+                            \\    try {0s}.coerce(@typeInfo(@TypeOf({[name]s}_renderPartial)).@"fn".param_types[{[index]}].?)
                             \\else
                             \\   {[root]s}
                         , .{
