@@ -19,6 +19,8 @@
         "src/zmpl.zig",
         "src/zmpl",
         "src/manifest",
+        "vendor/zmd",
+        "vendor/zul",
         "LICENSE",
         "README.md",
     },
